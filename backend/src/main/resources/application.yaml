@@ -1,0 +1,78 @@
+# =============================================================================
+# OnlineOrder — application.yaml
+# Spring Boot Configuration File
+# =============================================================================
+
+server:
+  port: ${SERVER_PORT:8093}
+
+spring:
+
+  application:
+    name: OnlineOrder
+
+  jackson:
+    # 序列化/反序列化时忽略 null 值字段，减少响应体大小
+    default-property-inclusion: non_null
+    # 统一使用 camelCase 命名，与前端 JavaScript 惯例保持一致
+    property-naming-strategy: LOWER_CAMEL_CASE
+    # 日期格式化
+    date-format: yyyy-MM-dd HH:mm:ss
+    write-dates-as-timestamps: false
+
+  datasource:
+    url: jdbc:postgresql://${DATABASE_HOST:localhost}:${DATABASE_PORT:5432}/${DATABASE_NAME:onlineorder}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      # 连接池配置
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+
+  flyway:
+    # 开发环境默认禁用（使用 database-init.sql），生产环境启用 Flyway 迁移
+    enabled: ${FLYWAY_ENABLED:false}
+    baseline-on-migrate: true
+    # 迁移脚本目录
+    locations: classpath:db/migration
+
+  cache:
+    caffeine:
+      spec: expireAfterWrite=60s
+
+# ----------------------------------------------------------------------------
+# JWT 配置
+# 重要：生产环境必须通过环境变量设置一个足够长的密钥（至少 32 字节）
+# 示例：JWT_SECRET=$(openssl rand -base64 32)
+# ----------------------------------------------------------------------------
+jwt:
+  secret: ${JWT_SECRET:-ONLINE_ORDER_DEV_ONLY_SECRET_KEY_32CHARS_OK}
+
+# ----------------------------------------------------------------------------
+# CORS 配置
+# 允许的前端跨域来源，生产环境通过环境变量配置
+# ----------------------------------------------------------------------------
+cors:
+  allowed-origins: ${CORS_ORIGINS:http://localhost:5173}
+
+# ----------------------------------------------------------------------------
+# Actuator 配置
+# ----------------------------------------------------------------------------
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    com.cwj.onlineorder: ${LOG_LEVEL_APP:DEBUG}
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

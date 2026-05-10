@@ -1,0 +1,59 @@
+services:
+
+  db:
+    image: postgres:15.2-alpine
+    environment:
+      POSTGRES_DB: onlineorder
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - onlineorder-pg-local:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8093:8093"
+    environment:
+      DATABASE_URL: db
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: secret
+      SPRING_SQL_INIT_MODE: always
+      FLYWAY_ENABLED: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles:
+      - dev
+
+  backend-prod:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8093:8093"
+    environment:
+      DATABASE_URL: db
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: secret
+      SPRING_SQL_INIT_MODE: never
+      FLYWAY_ENABLED: "true"
+      SPRING_PROFILES_ACTIVE: prod
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles:
+      - prod
+
+volumes:
+  onlineorder-pg-local:
