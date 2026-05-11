@@ -1,7 +1,7 @@
 package com.cwj.onlineorder.exception;
 
 /**
- * 禁止访问异常（Forbidden Exception）。
+ * 禁止访问异常。
  *
  * 当用户尝试访问或操作其权限范围之外的资源时抛出。
  *
@@ -16,11 +16,12 @@ package com.cwj.onlineorder.exception;
  */
 public class ForbiddenException extends RuntimeException {
 
+    /**
+     * 根据错误描述构造异常。
+     *
+     * @param message 错误描述信息
+     */
     public ForbiddenException(String message) {
         super(message);
-    }
-
-    public ForbiddenException(String message, Throwable cause) {
-        super(message, cause);
     }
 }

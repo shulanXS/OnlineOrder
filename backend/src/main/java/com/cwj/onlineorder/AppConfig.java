@@ -23,21 +23,33 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.List;
 
 /**
- * Spring Security 配置。
+ * Spring Security 全局配置。
  *
  * 核心设计：
  * - 使用 JWT Token 进行无状态认证（SessionCreationPolicy.STATELESS）
- * - JWT 过滤器在 UsernamePasswordAuthenticationFilter 之前执行
- * - CORS 配置允许前端跨域请求（来源可配置）
+ * - JWT 过滤器（JwtAuthFilter）在 UsernamePasswordAuthenticationFilter 之前执行
+ * - CORS 配置允许前端跨域请求，来源通过环境变量配置
  *
  * 认证流程：
  * 1. JwtAuthFilter 拦截请求，解析 Authorization Header 中的 Bearer Token
  * 2. Token 有效则将用户信息注入 SecurityContext
  * 3. Spring Security 根据 SecurityContext 判断请求是否已认证
  *
- * 接口权限：
- * - 公开接口：登录 (/auth/login)、注册 (/auth/register)、餐厅浏览
+ * 过滤器链顺序（重要）：
+ * - CORS Filter -> JwtAuthFilter -> UsernamePasswordAuthenticationFilter -> ...
+ * - JwtAuthFilter 在 UsernamePasswordAuthenticationFilter 之前执行，
+ *   因为表单登录只在 POST /auth/login 时使用，其他请求都需要 JWT 认证
+ *
+ * 路由权限设计：
+ * - 公开接口：登录 (/auth/login)、注册 (/auth/register)、餐厅浏览 (/restaurants/**)
  * - 认证接口：购物车、订单、用户信息（除上述以外的所有接口）
+ *
+ * 公开路径与 JwtAuthFilter.shouldNotFilter() 保持同步：
+ * - JwtAuthFilter.PUBLIC_PREFIXES 定义了无需 JWT 校验的路径前缀
+ * - filterChain 中的 permitAll() 定义了允许匿名访问的路径
+ * - 两处需同时维护，确保一致性
+ *
+ * @see JwtAuthFilter
  */
 @Configuration
 public class AppConfig {
@@ -81,7 +93,7 @@ public class AppConfig {
                         // 认证接口：登录、注册
                         .requestMatchers(HttpMethod.POST, "/auth/login", "/auth/register")
                                 .permitAll()
-                        // 餐厅浏览：公开接口
+                        // 餐厅浏览：公开接口（支持嵌套路由如 /restaurants/menu 和 /restaurant/{id}/menu）
                         .requestMatchers(HttpMethod.GET, "/restaurants/**", "/restaurant/**")
                                 .permitAll()
                         // OpenAPI / Swagger 文档
@@ -107,14 +119,19 @@ public class AppConfig {
      * CORS 跨域配置。
      *
      * 允许配置的前端跨域请求，支持 Cookie 和所有常见 HTTP 方法。
-     * 来源通过 cors.allowed-origins 环境变量配置。
+     * 来源通过 cors.allowed-origins 环境变量配置（支持逗号分隔多源）。
      *
      * @return CORS 配置源
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(corsAllowedOrigins.split(",")).stream().map(String::trim).toList());
+        // 支持逗号分隔的多个 CORS 来源
+        configuration.setAllowedOrigins(
+                List.of(corsAllowedOrigins.split(",")).stream()
+                        .map(String::trim)
+                        .toList()
+        );
         configuration.setAllowCredentials(true);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Content-Type", "Authorization", "X-Requested-With"));
@@ -129,7 +146,7 @@ public class AppConfig {
      * 密码编码器。
      *
      * 使用 BCrypt 哈希算法：
-     * - 每次编码结果不同（自带盐值）
+     * - 每次编码结果不同（自带随机盐值）
      * - 不可逆
      * - 内置强度参数（默认 10 轮）
      *

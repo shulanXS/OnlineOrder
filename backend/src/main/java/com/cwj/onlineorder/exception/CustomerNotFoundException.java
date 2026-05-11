@@ -13,11 +13,12 @@ package com.cwj.onlineorder.exception;
  */
 public class CustomerNotFoundException extends RuntimeException {
 
+    /**
+     * 根据邮箱构造异常。
+     *
+     * @param email 查找时使用的邮箱地址
+     */
     public CustomerNotFoundException(String email) {
         super("顾客不存在，邮箱: " + email);
-    }
-
-    public CustomerNotFoundException(String message, Throwable cause) {
-        super(message, cause);
     }
 }

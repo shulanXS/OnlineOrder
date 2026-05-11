@@ -13,7 +13,10 @@ import org.springframework.data.relational.core.mapping.Table;
  * - name：餐厅名称
  * - address：地址
  * - phone：联系电话
- * - imageUrl：餐厅封面图片 URL
+ * - imageUrl：餐厅封面图片 URL（可以是相对路径或绝对 URL）
+ *
+ * @see com.cwj.onlineorder.repository.RestaurantRepository
+ * @see com.cwj.onlineorder.service.RestaurantService
  */
 @Table("restaurants")
 public record RestaurantEntity(

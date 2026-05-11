@@ -13,9 +13,14 @@
  * 2. mutationFn 调用 login API
  * 3. 成功：setAuth() 保存 Token + 获取用户信息 -> 提示"登录成功" -> 跳转餐厅页
  * 4. 失败：showError() 展示错误信息（由 apiClient 拦截器注入 message）
+ *
+ * 字段命名说明：
+ * - 表单字段 name="email"（与 LoginCredentials 接口一致）
+ * - 旧实现使用 name="username" 导致语义混淆，已修正
+ * - placeholder 保持"邮箱"明确提示用户
  */
 import { Button, Card, Form, Input, message, Typography } from 'antd';
-import { LockOutlined, UserOutlined } from '@ant-design/icons';
+import { LockOutlined, MailOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/authStore';
@@ -46,15 +51,25 @@ const LoginPage = () => {
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <Title level={3}>登录 Lai Food</Title>
         </div>
-        <Form form={form} name="login" onFinish={mutate} layout="vertical" requiredMark={false}>
+        <Form
+          form={form}
+          name="login"
+          onFinish={mutate}
+          layout="vertical"
+          requiredMark={false}
+        >
           <Form.Item
-            name="username"
+            name="email"
             rules={[
-              { required: true, message: '请输入用户名' },
-              { type: 'email', message: '请输入有效邮箱' },
+              { required: true, message: '请输入邮箱' },
+              { type: 'email', message: '请输入有效邮箱格式' },
             ]}
           >
-            <Input prefix={<UserOutlined />} placeholder="用户名 / 邮箱" size="large" />
+            <Input
+              prefix={<MailOutlined />}
+              placeholder="邮箱"
+              size="large"
+            />
           </Form.Item>
           <Form.Item name="password" rules={[{ required: true, message: '请输入密码' }]}>
             <Input.Password prefix={<LockOutlined />} placeholder="密码" size="large" />

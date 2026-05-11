@@ -11,7 +11,7 @@ import java.util.List;
  *
  * 设计要点：
  * - 购物车商品行通过 (cart_id, menu_item_id) 组合唯一标识。
- *   同一菜品重复添加时更新数量，而非创建重复行。
+ *   同一菜品重复添加时通过 UNIQUE 约束更新数量，而非创建重复行。
  * - 所有写操作（DELETE、UPDATE）需要 @Modifying 注解。
  * - 批量删除购物车商品使用单条 SQL 避免 N+1 问题。
  */
@@ -27,11 +27,6 @@ public interface CartItemRepository extends ListCrudRepository<CartItemEntity, L
      * 用于判断菜品是否已在购物车中（存在则更新数量，否则新增）。
      */
     CartItemEntity findByCartIdAndMenuItemId(Long cartId, Long menuItemId);
-
-    /**
-     * 批量查询指定购物车中的所有商品行（按 ID 列表）。
-     */
-    List<CartItemEntity> findAllByIdIn(List<Long> ids);
 
     /**
      * 批量删除指定购物车中的所有商品行。

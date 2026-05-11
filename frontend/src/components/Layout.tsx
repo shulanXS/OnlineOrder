@@ -5,7 +5,8 @@
  * Header 中根据登录状态显示不同操作按钮。
  *
  * 设计要点：
- * - 购物车 Badge 数量：仅在已登录时调用 useCart()，避免未认证时产生 401 请求
+ * - 购物车 Badge 数量：通过 useCart({ enabled }) 参数控制查询是否执行，
+ *   避免在未认证状态下产生 401 请求，同时确保始终遵循 React Hook 规则
  * - 退出按钮点击后弹出确认框，防止误操作
  * - Header 使用 sticky 定位，滚动时始终可见
  */
@@ -25,8 +26,11 @@ const LayoutComponent = ({ children }: { children: React.ReactNode }) => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const logout = useAuthStore((s) => s.logout);
 
-  // 仅在已登录时加载购物车数据，避免产生不必要的 401 请求
-  const { data: cart } = isAuthenticated ? useCart() : { data: undefined };
+  // useCart({ enabled }) 确保：
+  // 1. 未登录时 enabled=false，查询不执行，无 401 请求
+  // 2. 已登录时 enabled=true，正常查询购物车数据
+  // 3. useCart 始终被调用，遵循 React Hook 规则
+  const { data: cart } = useCart({ enabled: isAuthenticated });
 
   const handleLogout = () => {
     Modal.confirm({

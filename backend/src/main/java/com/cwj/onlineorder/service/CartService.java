@@ -85,6 +85,9 @@ public class CartService {
      * - 如果该菜品已在购物车中：已有行的 quantity += 1
      * - 购物车总价自动增加该菜品的当前单价
      *
+     * 并发安全：使用 SELECT ... FOR UPDATE 对购物车行加悲观锁，
+     * 防止并发添加商品时出现读-改-写竞态导致总价计算错误。
+     *
      * @param email      顾客邮箱（登录用户名）
      * @param menuItemId 菜品 ID
      */
@@ -96,10 +99,21 @@ public class CartService {
         }
         long customerId = customer.id();
 
-        CartEntity cart = cartRepository.getByCustomerId(customerId);
+        // 使用悲观锁读取购物车，防止并发添加时出现读-改-写竞态
+        CartEntity cart = jdbcTemplate.queryForObject(
+                "SELECT id, customer_id, total_price FROM carts WHERE customer_id = ? FOR UPDATE",
+                (rs, rowNum) -> new CartEntity(
+                        rs.getLong("id"),
+                        rs.getLong("customer_id"),
+                        rs.getBigDecimal("total_price")
+                ),
+                customerId
+        );
+
+        // 如果购物车不存在（极罕见：用户在注册后从未添加过商品），自动创建
         if (cart == null) {
-            cart = new CartEntity(null, customerId, BigDecimal.ZERO);
-            cart = cartRepository.save(cart);
+            CartEntity newCart = new CartEntity(null, customerId, BigDecimal.ZERO);
+            cart = cartRepository.save(newCart);
         }
 
         MenuItemEntity menuItem = menuItemRepository.findById(menuItemId)
@@ -111,6 +125,7 @@ public class CartService {
 
         Long cartItemId;
         int quantity;
+        BigDecimal price = menuItem.price();
 
         if (existingItem == null) {
             cartItemId = null;
@@ -120,7 +135,7 @@ public class CartService {
             quantity = existingItem.quantity() + 1;
         }
 
-        BigDecimal price = menuItem.price();
+        // 保存商品行（同一菜品重复添加时 UPDATE，已有 UNIQUE 约束）
         CartItemEntity newItem = new CartItemEntity(
                 cartItemId,
                 menuItemId,
@@ -130,8 +145,8 @@ public class CartService {
         );
         cartItemRepository.save(newItem);
 
-        cartRepository.updateTotalPrice(cart.id(),
-                cart.totalPrice().add(price));
+        // 更新总价（基于锁定的 cart.totalPrice()，防止竞态）
+        cartRepository.updateTotalPrice(cart.id(), cart.totalPrice().add(price));
 
         return getCart(email);
     }
@@ -172,9 +187,13 @@ public class CartService {
      * 并发安全：使用 SELECT ... FOR UPDATE 对购物车行加锁，
      * 确保同一时刻只有一个请求能对同一购物车执行结账操作。
      *
+     * 数据完整性：
+     * - 结账前重新计算购物车总价，与 cart.totalPrice() 比对
+     * - 如果存在已删除菜品（menuItemMap 中找不到），拒绝结账并提示用户
+     *
      * @param email 顾客邮箱
      * @return 创建的订单 DTO
-     * @throws IllegalArgumentException 购物车为空时抛出
+     * @throws IllegalArgumentException 购物车为空或菜品已下架时抛出
      */
     @Transactional
     public OrderDto clearCart(String email) {
@@ -184,7 +203,8 @@ public class CartService {
         }
         long customerId = customer.id();
 
-        CartEntity cartEntity = jdbcTemplate.queryForObject(
+        // 使用悲观锁读取购物车
+        List<CartEntity> carts = jdbcTemplate.query(
                 "SELECT id, customer_id, total_price FROM carts WHERE customer_id = ? FOR UPDATE",
                 (rs, rowNum) -> new CartEntity(
                         rs.getLong("id"),
@@ -194,16 +214,18 @@ public class CartService {
                 customerId
         );
 
-        if (cartEntity == null) {
+        if (carts.isEmpty()) {
             throw new IllegalArgumentException("购物车不存在");
         }
+        CartEntity cartEntity = carts.get(0);
 
-        if (cartEntity.totalPrice().compareTo(BigDecimal.ZERO) == 0) {
+        if (cartEntity.totalPrice().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("购物车为空，无法结账");
         }
 
         List<CartItemEntity> cartItems = cartItemRepository.getAllByCartId(cartEntity.id());
 
+        // 先创建订单（此时还不知道 orderId，先用 null 占位）
         LocalDateTime now = LocalDateTime.now();
         OrderEntity order = new OrderEntity(
                 null,
@@ -215,31 +237,40 @@ public class CartService {
         );
         OrderEntity savedOrder = orderRepository.save(order);
 
-        if (!cartItems.isEmpty()) {
-            Map<Long, MenuItemEntity> menuItemMap = buildMenuItemMap(cartItems);
-            List<OrderDetailEntity> orderDetails = new ArrayList<>();
+        // 检查是否有菜品已下架（被删除）
+        Map<Long, MenuItemEntity> menuItemMap = buildMenuItemMap(cartItems);
+        List<OrderDetailEntity> orderDetails = new ArrayList<>();
+        List<Long> deletedItemIds = new ArrayList<>();
 
-            for (CartItemEntity item : cartItems) {
-                MenuItemEntity menuItem = menuItemMap.get(item.menuItemId());
-                if (menuItem != null) {
-                    orderDetails.add(new OrderDetailEntity(
-                            null,
-                            savedOrder.id(),
-                            item.menuItemId(),
-                            menuItem.name(),
-                            menuItem.description(),
-                            menuItem.imageUrl(),
-                            item.price(),
-                            item.quantity()
-                    ));
-                } else {
-                    log.warn("菜品 ID={} 已被删除，跳过订单明细快照，购物车商品行 ID={}",
-                            item.menuItemId(), item.id());
-                }
+        for (CartItemEntity item : cartItems) {
+            MenuItemEntity menuItem = menuItemMap.get(item.menuItemId());
+            if (menuItem != null) {
+                orderDetails.add(new OrderDetailEntity(
+                        null,
+                        savedOrder.id(),
+                        item.menuItemId(),
+                        menuItem.name(),
+                        menuItem.description(),
+                        menuItem.imageUrl(),
+                        item.price(),
+                        item.quantity()
+                ));
+            } else {
+                log.warn("菜品 ID={} 已被删除，跳过订单明细，购物车商品行 ID={}",
+                        item.menuItemId(), item.id());
+                deletedItemIds.add(item.menuItemId());
             }
-            orderDetailRepository.saveAll(orderDetails);
         }
 
+        // 如果有已下架菜品，拒绝结账，让用户先清理购物车
+        if (!deletedItemIds.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "购物车中有 " + deletedItemIds.size() + " 道菜品已下架，请先移除后再结账");
+        }
+
+        orderDetailRepository.saveAll(orderDetails);
+
+        // 清空购物车
         cartItemRepository.deleteByCartId(cartEntity.id());
         cartRepository.updateTotalPrice(cartEntity.id(), BigDecimal.ZERO);
 
@@ -277,11 +308,15 @@ public class CartService {
         }
 
         if (newQuantity <= 0) {
+            // 移除商品：删除行并减少总价
             BigDecimal removedTotal = item.price().multiply(BigDecimal.valueOf(item.quantity()));
             cartItemRepository.deleteById(item.id());
             cartRepository.updateTotalPrice(cart.id(), cart.totalPrice().subtract(removedTotal));
         } else {
-            BigDecimal priceDiff = item.price().multiply(BigDecimal.valueOf(newQuantity - item.quantity()));
+            // 更新数量：重新计算差价并调整总价
+            BigDecimal priceDiff = item.price().multiply(
+                    BigDecimal.valueOf(newQuantity - item.quantity())
+            );
             CartItemEntity updatedItem = new CartItemEntity(
                     item.id(), item.menuItemId(), cart.id(), item.price(), newQuantity
             );

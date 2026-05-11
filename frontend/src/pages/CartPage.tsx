@@ -15,24 +15,21 @@
  * 1. 弹出确认框显示金额
  * 2. 用户确认后调用 checkout API
  * 3. 成功后清空本地购物车状态、刷新订单列表、跳转订单页
+ *
+ * 数量变更 UX：
+ * - InputNumber 最小值为 0，达到 0 时自动触发删除逻辑
+ * - 删除按钮点击后直接调用数量归零，简化交互
+ * - 乐观更新确保 UI 即时响应，无需等待网络返回
  */
 import { Button, Empty, InputNumber, List, Modal, Spin, Typography, message } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useCart, useUpdateQuantity, useCheckout } from '../hooks/useCart';
 import { useApiError } from '../hooks/useApiError';
-import { CURRENCY_SYMBOL } from '../constants';
+import { PLACEHOLDER_IMAGE } from '../constants';
+import { formatPrice } from '../utils/formatters';
 
 const { Text, Title } = Typography;
-
-const PLACEHOLDER_IMAGE =
-  'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="60" height="60"%3E%3Crect fill="%23f0f0f0" width="60" height="60"/%3E%3Ctext x="50%25" y="50%25" font-family="sans-serif" font-size="10" fill="%23999" text-anchor="middle" dy=".3em"%3ENo%3C/text%3E%3C/svg%3E';
-
-/** 格式化金额为字符串（保留两位小数）。 */
-const formatPrice = (price: number | string | null | undefined): string => {
-  const n = Number(price) || 0;
-  return `${CURRENCY_SYMBOL}${n.toFixed(2)}`;
-};
 
 const CartPage = () => {
   const navigate = useNavigate();
@@ -97,9 +94,20 @@ const CartPage = () => {
                     type="text"
                     danger
                     icon={<DeleteOutlined />}
-                    onClick={() =>
-                      updateQuantity({ menuItemId: item.menuItemId, quantity: 0 })
-                    }
+                    onClick={() => {
+                      // 删除前弹出确认，避免误触
+                      Modal.confirm({
+                        title: '确认移除',
+                        content: `确定要从购物车移除「${item.menuItemName}」吗？`,
+                        okText: '移除',
+                        cancelText: '取消',
+                        okButtonProps: { danger: true },
+                        onOk: () => {
+                          updateQuantity({ menuItemId: item.menuItemId, quantity: 0 });
+                          message.success('已从购物车移除');
+                        },
+                      });
+                    }}
                   />,
                 ]}
               >
@@ -108,7 +116,7 @@ const CartPage = () => {
                     <img
                       src={item.menuItemImageUrl}
                       alt={item.menuItemName}
-                      onError={(e) => { (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE; }}
+                      onError={(e) => { (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE.cart; }}
                       style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 4 }}
                     />
                   }
