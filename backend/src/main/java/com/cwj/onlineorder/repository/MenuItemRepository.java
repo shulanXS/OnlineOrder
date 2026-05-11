@@ -1,46 +1,34 @@
-// ---------------------------------------------------------------------------
-// OnlineOrder - Repository: MenuItemRepository
-// ---------------------------------------------------------------------------
-// Repository for MenuItemEntity.
-//
-// Spring Data JDBC naming convention used here:
-//   "getBy" prefix (instead of "findBy") = same behavior but signals that the
-//   method returns the entity directly rather than an Optional.
-//
-// getByRestaurantId(Long restaurantId)
-//   -> SELECT * FROM menu_items WHERE restaurant_id = ?
-//   -> Returns all menu items belonging to the given restaurant.
-//      Returns an empty list if the restaurant has no menu items.
-//
-// Note: If you want a method that also loads the associated restaurant entity
-// (rather than just the restaurant_id number), you would need to use
-// @Query with a JOIN or configure entity traversal. Spring Data JDBC does not
-// auto-fetch related entities like JPA's @ManyToOne/@OneToMany does.
-// ---------------------------------------------------------------------------
 package com.cwj.onlineorder.repository;
 
 import com.cwj.onlineorder.entity.MenuItemEntity;
 import org.springframework.data.repository.ListCrudRepository;
+
 import java.util.List;
 
-// Repository for MenuItemEntity.
+/**
+ * 菜品 Repository。
+ *
+ * 提供菜品的 CRUD 操作。
+ *
+ * 方法说明：
+ * - getByRestaurantId：查询指定餐厅的所有菜品（按 ID 升序）
+ * - findAllByIdIn：批量查询多个 ID 的菜品（用于优化批量加载）
+ */
 public interface MenuItemRepository extends ListCrudRepository<MenuItemEntity, Long> {
 
-    // Derived query: "get" + "By" + "RestaurantId"
-    // Spring Data generates: SELECT * FROM menu_items WHERE restaurant_id = ?
-    //
-    // "getBy" vs "findBy" in Spring Data JDBC:
-    //   findBy  -> returns Optional<Entity> (safe: null check required)
-    //   getBy   -> returns Entity directly (throws if not found)
-    // Both work; "getBy" is slightly more concise for known-use cases.
-    //
-    // Note: This only returns the menu_items rows. The restaurant data itself
-    // (name, address, etc.) is NOT loaded automatically. You need the
-    // RestaurantRepository to fetch that separately.
-    //
-    // If you wanted to fetch menu items AND their restaurant in one query,
-    // you would write a custom @Query with a JOIN:
-    //   @Query("SELECT m.*, r.name FROM menu_items m JOIN restaurants r ON m.restaurant_id = r.id WHERE m.restaurant_id = :restaurantId")
-    //   List<MenuItemEntity> getByRestaurantIdWithRestaurant(Long restaurantId);
+    /**
+     * 查询指定餐厅的所有菜品。
+     *
+     * @param restaurantId 餐厅 ID
+     * @return 该餐厅的菜品列表
+     */
     List<MenuItemEntity> getByRestaurantId(Long restaurantId);
+
+    /**
+     * 根据 ID 列表批量查询菜品。
+     *
+     * @param ids 菜品 ID 列表
+     * @return 匹配的所有菜品
+     */
+    List<MenuItemEntity> findAllByIdIn(List<Long> ids);
 }

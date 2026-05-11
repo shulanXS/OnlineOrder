@@ -17,6 +17,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * JWT Authentication Filter.
@@ -50,6 +51,22 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     public JwtAuthFilter(JwtTokenProvider tokenProvider, UserDetailsService userDetailsService) {
         this.tokenProvider = tokenProvider;
         this.userDetailsService = userDetailsService;
+    }
+
+    private static final List<String> PUBLIC_PREFIXES = List.of(
+            "/auth/",
+            "/restaurants",
+            "/restaurant/",
+            "/swagger",
+            "/v3/api-docs",
+            "/actuator/health",
+            "/actuator/info"
+    );
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return PUBLIC_PREFIXES.stream().anyMatch(path::startsWith);
     }
 
     @Override

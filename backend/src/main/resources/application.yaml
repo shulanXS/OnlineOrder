@@ -14,11 +14,12 @@ spring:
   jackson:
     # 序列化/反序列化时忽略 null 值字段，减少响应体大小
     default-property-inclusion: non_null
-    # 统一使用 camelCase 命名，与前端 JavaScript 惯例保持一致
-    property-naming-strategy: LOWER_CAMEL_CASE
     # 日期格式化
     date-format: yyyy-MM-dd HH:mm:ss
     write-dates-as-timestamps: false
+    # 字段命名：Spring Boot 默认使用 Java 字段名（camelCase），
+    # JSON 响应如 { "totalPrice": 10.59, "cartItems": [...] }，
+    # 与前端 TypeScript 的 camelCase 类型定义保持一致。
 
   datasource:
     url: jdbc:postgresql://${DATABASE_HOST:localhost}:${DATABASE_PORT:5432}/${DATABASE_NAME:onlineorder}
@@ -49,7 +50,7 @@ spring:
 # 示例：JWT_SECRET=$(openssl rand -base64 32)
 # ----------------------------------------------------------------------------
 jwt:
-  secret: ${JWT_SECRET:-ONLINE_ORDER_DEV_ONLY_SECRET_KEY_32CHARS_OK}
+  secret: ${JWT_SECRET:-default-dev-secret-key-change-in-production}
 
 # ----------------------------------------------------------------------------
 # CORS 配置

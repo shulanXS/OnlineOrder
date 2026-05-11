@@ -1,7 +1,15 @@
 package com.cwj.onlineorder.exception;
 
 /**
- * 自定义异常：表示请求的顾客在数据库中不存在。
+ * 顾客不存在异常。
+ *
+ * 当根据邮箱查找顾客但数据库中不存在时抛出。
+ *
+ * 映射规则：
+ * - 由 GlobalExceptionHandler.handleCustomerNotFound() 捕获
+ * - 统一返回 HTTP 404 Not Found 响应
+ *
+ * @see GlobalExceptionHandler#handleCustomerNotFound(CustomerNotFoundException)
  */
 public class CustomerNotFoundException extends RuntimeException {
 

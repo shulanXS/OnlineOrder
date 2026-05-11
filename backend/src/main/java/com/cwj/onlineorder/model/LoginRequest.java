@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 /**
  * 登录请求体。
  *
- * @param username 用户邮箱（即登录用户名）
+ * @param username 用户邮箱（登录用户名）
  * @param password 密码
  */
 public record LoginRequest(

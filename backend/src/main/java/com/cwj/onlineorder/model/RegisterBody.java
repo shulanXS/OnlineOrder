@@ -5,7 +5,12 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 /**
- * 注册请求体。
+ * 用户注册请求体。
+ *
+ * @param email     邮箱（唯一）
+ * @param password  密码（至少 8 位）
+ * @param firstName 名
+ * @param lastName  姓
  */
 public record RegisterBody(
         @NotBlank(message = "邮箱不能为空")

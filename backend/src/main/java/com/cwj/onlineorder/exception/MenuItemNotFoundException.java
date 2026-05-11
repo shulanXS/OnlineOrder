@@ -1,7 +1,15 @@
 package com.cwj.onlineorder.exception;
 
 /**
- * 自定义异常：表示请求的菜品在数据库中不存在。
+ * 菜品不存在异常。
+ *
+ * 当根据 ID 查找菜品但数据库中不存在时抛出。
+ *
+ * 映射规则：
+ * - 由 GlobalExceptionHandler.handleMenuItemNotFound() 捕获
+ * - 统一返回 HTTP 404 Not Found 响应
+ *
+ * @see GlobalExceptionHandler#handleMenuItemNotFound(MenuItemNotFoundException)
  */
 public class MenuItemNotFoundException extends RuntimeException {
 

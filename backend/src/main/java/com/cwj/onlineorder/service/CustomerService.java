@@ -4,9 +4,6 @@ import com.cwj.onlineorder.entity.CartEntity;
 import com.cwj.onlineorder.entity.CustomerEntity;
 import com.cwj.onlineorder.repository.CartRepository;
 import com.cwj.onlineorder.repository.CustomerRepository;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,8 +44,7 @@ public class CustomerService {
      * 1. 邮箱小写化（统一存储格式）
      * 2. 密码 BCrypt 哈希（不可逆加密）
      * 3. 保存 customers 表记录
-     * 4. 保存 authorities 表记录（角色为 USER）
-     * 5. 创建空购物车
+     * 4. 创建空购物车
      *
      * 注意：此方法不返回 Token。Token 由 AuthController 在注册成功后生成并返回，
      * 这样前端注册后无需二次登录。
@@ -62,16 +58,12 @@ public class CustomerService {
     public void signUp(String email, String password, String firstName, String lastName) {
         email = email.toLowerCase();
 
-        UserDetails user = User.builder()
-                .username(email)
-                .password(passwordEncoder.encode(password))
-                .authorities(new SimpleGrantedAuthority("ROLE_USER"))
-                .build();
+        String encodedPassword = passwordEncoder.encode(password);
 
         CustomerEntity customer = new CustomerEntity(
                 null,
                 email,
-                user.getPassword(),
+                encodedPassword,
                 true,
                 firstName,
                 lastName

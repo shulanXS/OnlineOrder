@@ -1,18 +1,22 @@
 package com.cwj.onlineorder.controller;
 
 import com.cwj.onlineorder.exception.CustomerNotFoundException;
+import com.cwj.onlineorder.exception.ForbiddenException;
 import com.cwj.onlineorder.exception.MenuItemNotFoundException;
 import com.cwj.onlineorder.model.ApiResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import jakarta.validation.ConstraintViolationException;
 
 /**
  * 全局异常处理器。
@@ -23,8 +27,15 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    private static final int PG_UNIQUE_VIOLATION = 23505;
+
     private ResponseEntity<ApiResult<Void>> fail(HttpStatus status, String code, String message) {
         return ResponseEntity.status(status).body(ApiResult.fail(status.value(), code, message));
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ApiResult<Void>> handleForbidden(ForbiddenException ex) {
+        return fail(HttpStatus.FORBIDDEN, "FORBIDDEN", ex.getMessage());
     }
 
     @ExceptionHandler(MenuItemNotFoundException.class)
@@ -56,11 +67,33 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResult<Void>> handleDataIntegrity(DataIntegrityViolationException ex) {
-        String msg = ex.getMessage() != null && ex.getMessage().contains("customers_email_key")
-                ? "该邮箱已被注册" : "数据操作失败";
-        HttpStatus status = msg.contains("邮箱") ? HttpStatus.CONFLICT : HttpStatus.INTERNAL_SERVER_ERROR;
-        if (!msg.contains("邮箱")) log.error("Data integrity violation: {}", ex.getMessage(), ex);
-        return fail(status, status.getReasonPhrase(), msg);
+        Throwable cause = ex.getCause();
+        if (cause instanceof org.postgresql.util.PSQLException pgEx
+                && pgEx.getSQLState() != null
+                && pgEx.getSQLState().equals(String.valueOf(PG_UNIQUE_VIOLATION))) {
+            return fail(HttpStatus.CONFLICT, "CONFLICT", "该邮箱已被注册");
+        }
+        log.error("Data integrity violation: {}", ex.getMessage(), ex);
+        return fail(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR", "数据操作失败");
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResult<Void>> handleConstraintViolation(ConstraintViolationException ex) {
+        String msg = ex.getConstraintViolations().isEmpty()
+                ? "数据约束违反"
+                : ex.getConstraintViolations().iterator().next().getMessage();
+        return fail(HttpStatus.BAD_REQUEST, "CONSTRAINT_VIOLATION", msg);
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ApiResult<Void>> handleOptimisticLock(OptimisticLockingFailureException ex) {
+        return fail(HttpStatus.CONFLICT, "CONFLICT", "数据已被其他操作修改，请刷新后重试");
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResult<Void>> handleMissingParam(MissingServletRequestParameterException ex) {
+        return fail(HttpStatus.BAD_REQUEST, "MISSING_PARAMETER",
+                "缺少必需参数: " + ex.getParameterName());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

@@ -33,8 +33,8 @@ CREATE TABLE authorities (
 -- -----------------------------------------------------------------------------
 CREATE TABLE carts (
     id          BIGSERIAL PRIMARY KEY NOT NULL,
-    customer_id INTEGER UNIQUE        NOT NULL,
-    total_price NUMERIC(19,4)       NOT NULL DEFAULT 0,
+    customer_id BIGINT UNIQUE        NOT NULL,
+    total_price NUMERIC(19,4)    NOT NULL DEFAULT 0,
     CONSTRAINT fk_cart_customer FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE
 );
 

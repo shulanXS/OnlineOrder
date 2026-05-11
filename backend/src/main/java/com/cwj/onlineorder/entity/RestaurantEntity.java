@@ -5,10 +5,11 @@ import org.springframework.data.relational.core.mapping.Table;
 
 /**
  * 餐厅实体。
+ *
  * 表示平台上的一个餐厅/商家。
  *
  * 字段说明：
- * - id：主键，自增
+ * - id：主键，自增（BIGSERIAL）
  * - name：餐厅名称
  * - address：地址
  * - phone：联系电话

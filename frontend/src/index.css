@@ -14,3 +14,63 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* ============================================================
+   Responsive Layout
+   ============================================================ */
+
+/* Large desktop: maxWidth=1200, padding=32px 50px */
+@media (max-width: 1200px) {
+  .ant-layout-content {
+    padding-left: 24px !important;
+    padding-right: 24px !important;
+  }
+}
+
+/* Tablet */
+@media (max-width: 768px) {
+  .ant-layout-content {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    padding-top: 16px !important;
+  }
+
+  .ant-layout-header {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+}
+
+/* Mobile */
+@media (max-width: 576px) {
+  .ant-layout-content {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    padding-top: 12px !important;
+  }
+
+  .ant-layout-header {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  .ant-card {
+    border-radius: 8px;
+  }
+}
+
+/* Ensure header title doesn't overflow on small screens */
+@media (max-width: 480px) {
+  .site-header-title {
+    font-size: 16px !important;
+  }
+
+  .header-buttons .ant-btn {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .header-buttons .ant-btn span {
+    display: none;
+  }
+}

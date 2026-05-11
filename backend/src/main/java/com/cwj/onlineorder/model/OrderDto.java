@@ -2,22 +2,32 @@ package com.cwj.onlineorder.model;
 
 import com.cwj.onlineorder.entity.OrderDetailEntity;
 import com.cwj.onlineorder.entity.OrderEntity;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
 /**
  * 订单数据传输对象。
- * 包含订单基本信息及商品明细列表。
  *
- * @param id        订单 ID
+ * 用于 API 响应的订单数据结构。
+ *
+ * 字段命名：
+ * - 使用 Java camelCase 字段名
+ * - Jackson 默认序列化为 camelCase JSON（如 totalPrice、createdAt）
+ * - 前端 TypeScript 接口使用相同的 camelCase 命名保持一致
+ *
+ * 构造方式：
+ * - 从 Entity + 明细列表构建（完整订单）
+ * - 仅从 Entity 构建（无明细，兜底用）
+ * - 完整参数构造（直接传入所有字段）
+ *
+ * @param id         订单 ID
  * @param customerId 顾客 ID
- * @param status    订单状态
+ * @param status     订单状态
  * @param totalPrice 订单总价
- * @param createdAt 下单时间
- * @param updatedAt 更新时间
- * @param details   订单明细列表
+ * @param createdAt  下单时间
+ * @param updatedAt  更新时间
+ * @param details    订单明细列表
  */
 public record OrderDto(
         Long id,
@@ -29,7 +39,8 @@ public record OrderDto(
         List<OrderDetailDto> details
 ) {
     /**
-     * 仅订单基本信息（无明细，用于兼容旧接口）。
+     * 仅包含基本信息的构造器（无明细）。
+     * 用于兼容只需要订单基本信息而不需要明细的场景。
      */
     public OrderDto(Long id, Long customerId, String status, BigDecimal totalPrice,
                     LocalDateTime createdAt, LocalDateTime updatedAt) {
@@ -37,7 +48,10 @@ public record OrderDto(
     }
 
     /**
-     * 从实体转换，附带明细列表。
+     * 从实体 + 明细列表构建完整的 DTO。
+     *
+     * @param entity       订单实体
+     * @param detailEntities 明细实体列表
      */
     public OrderDto(OrderEntity entity, List<OrderDetailEntity> detailEntities) {
         this(
@@ -52,7 +66,9 @@ public record OrderDto(
     }
 
     /**
-     * 从实体转换，无明细。
+     * 仅从实体构建（无明细）。
+     *
+     * @param entity 订单实体
      */
     public OrderDto(OrderEntity entity) {
         this(entity.id(), entity.customerId(), entity.status(),

@@ -1,5 +1,6 @@
 package com.cwj.onlineorder.controller;
 
+import com.cwj.onlineorder.model.ApiResult;
 import com.cwj.onlineorder.model.MenuItemDto;
 import com.cwj.onlineorder.model.RestaurantDto;
 import com.cwj.onlineorder.service.MenuItemService;
@@ -28,14 +29,15 @@ public class MenuController {
     }
 
     @GetMapping("/restaurant/{restaurantId}/menu")
-    public List<MenuItemDto> getMenuByRestaurant(@PathVariable("restaurantId") long restaurantId) {
-        return menuItemService.getMenuItemsByRestaurantId(restaurantId).stream()
+    public ApiResult<List<MenuItemDto>> getMenuByRestaurant(@PathVariable("restaurantId") long restaurantId) {
+        List<MenuItemDto> items = menuItemService.getMenuItemsByRestaurantId(restaurantId).stream()
                 .map(MenuItemDto::new)
                 .toList();
+        return ApiResult.ok(items);
     }
 
     @GetMapping("/restaurants/menu")
-    public List<RestaurantDto> getMenuForAllRestaurants() {
-        return restaurantService.getRestaurants();
+    public ApiResult<List<RestaurantDto>> getMenuForAllRestaurants() {
+        return ApiResult.ok(restaurantService.getRestaurants());
     }
 }

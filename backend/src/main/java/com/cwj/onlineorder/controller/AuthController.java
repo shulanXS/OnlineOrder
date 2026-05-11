@@ -1,6 +1,7 @@
 package com.cwj.onlineorder.controller;
 
 import com.cwj.onlineorder.exception.CustomerNotFoundException;
+import com.cwj.onlineorder.model.ApiResult;
 import com.cwj.onlineorder.model.AuthResponse;
 import com.cwj.onlineorder.model.CustomerDto;
 import com.cwj.onlineorder.model.LoginRequest;
@@ -12,14 +13,13 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
 
 /**
  * 认证控制器。
@@ -49,21 +49,22 @@ public class AuthController {
      * 需要认证（携带有效 JWT Token）。
      */
     @GetMapping("/me")
-    public CustomerDto getCurrentUser(@AuthenticationPrincipal User user) {
+    public ApiResult<CustomerDto> getCurrentUser(@AuthenticationPrincipal User user) {
         var customer = customerService.getCustomerByEmail(user.getUsername());
         if (customer == null) {
             throw new CustomerNotFoundException("用户不存在: " + user.getUsername());
         }
-        return new CustomerDto(
+        CustomerDto dto = new CustomerDto(
                 customer.id(),
                 customer.email(),
                 customer.firstName(),
                 customer.lastName()
         );
+        return ApiResult.ok(dto);
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResult<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
         try {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
@@ -72,13 +73,21 @@ public class AuthController {
                     )
             );
             String token = tokenProvider.generateToken(authentication);
-            return ResponseEntity.ok(new AuthResponse(token, "Bearer", tokenProvider.getExpirationSeconds(token)));
+            AuthResponse body = new AuthResponse(token, "Bearer", tokenProvider.getExpirationSeconds(token));
+            return ResponseEntity.ok(ApiResult.ok(body));
+        } catch (BadCredentialsException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResult.fail(
+                            HttpStatus.UNAUTHORIZED.value(),
+                            "UNAUTHORIZED",
+                            "用户名或密码错误"
+                    ));
         } catch (AuthenticationException ex) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of(
-                            "status", 401,
-                            "error", "UNAUTHORIZED",
-                            "message", "用户名或密码错误"
+                    .body(ApiResult.fail(
+                            HttpStatus.UNAUTHORIZED.value(),
+                            "UNAUTHORIZED",
+                            "认证失败"
                     ));
         }
     }
